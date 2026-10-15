@@ -81,6 +81,48 @@ def text_width(s, size, sp):
     return w
 
 
+# 表題欄のセル (x 左, x 右, y 下, y 上)。書式の罫線から読んだ値。
+XL, XR = 59.67, 139.67            # 右側の欄
+VAL = 74.67                       # 右側の欄の項目名と記入欄の境
+CELLS = {
+    "品番": (XL, VAL, -34.33, -28.33), "品番_値": (VAL, XR, -34.33, -28.33),
+    "図番": (XL, VAL, -40.33, -34.33), "図番_値": (VAL, XR, -40.33, -34.33),
+    "得意先": (XL, VAL, -52.33, -40.33), "得意先_値": (VAL, XR, -52.33, -40.33),
+    "品名": (XL, VAL, -64.33, -52.33), "品名_値": (VAL, XR, -64.33, -52.33),
+    "第三角法": (-25.33, 19.67, -60.33, -54.33),
+    "尺度": (19.67, 39.67, -60.33, -54.33), "尺度_値": (39.67, XL, -60.33, -54.33),
+    "仕様": (-25.33, XL, -66.33, -60.33),
+    "材質": (-25.33, -0.33, -72.33, -66.33), "材質_値": (-0.33, XL, -72.33, -66.33),
+    "熱処理": (-25.33, -0.33, -78.33, -72.33), "熱処理_値": (-0.33, XL, -78.33, -72.33),
+    "表面処理": (-25.33, -0.33, -84.33, -78.33), "表面処理_値": (-0.33, XL, -84.33, -78.33),
+}
+for _x0, _key in ((79.67, "承認"), (99.67, "検図"), (119.67, "製図")):
+    CELLS[_key] = (_x0, _x0 + 20, -70.33, -64.33)
+    CELLS[_key + "_日付"] = (_x0, _x0 + 20, -80.33, -70.33)   # 押印欄の上半分
+    CELLS[_key + "_値"] = (_x0, _x0 + 20, -90.33, -80.33)     # 押印欄の下半分
+TITLE_LABEL_CELLS = [k for k in CELLS if not k.endswith(("_値", "_日付"))]
+PAPER_W = 297.0                   # 用紙の幅。原点は用紙中心
+
+
+def cell_text(sheet, cell, s, size, sp=0.5, margin=1.0):
+    """セルの左右・上下の中央に置く。入りきらなければ文字を小さくする。"""
+    if not s:
+        return
+    x1, x2, y1, y2 = cell
+    size = fit_size(s, size, sp, x2 - x1 - 2 * margin)
+    size = min(size, y2 - y1 - 1.0)       # 上下は 0.5 ずつ空ける
+    w = text_width(s, size, sp)
+    sheet.text((x1 + x2 - w) / 2, (y1 + y2 - size) / 2, s, size, sp)
+
+
+def find_cell(x, y):
+    for k in TITLE_LABEL_CELLS:
+        x1, x2, y1, y2 = CELLS[k]
+        if x1 < x < x2 and y1 < y < y2:
+            return CELLS[k]
+    return None
+
+
 def load_template(sheet):
     d = open(TEMPLATE, "rb").read()
     ver = int.from_bytes(d[8:12], "little")
@@ -92,26 +134,28 @@ def load_template(sheet):
         if e["type"] == "line":
             sheet.line(e["x1"], e["y1"], e["x2"], e["y2"], e["color"], e["style"])
         elif e["type"] == "text" and e["s"] not in TEMPLATE_CONTENT:
-            sheet.items.append(("text", (e["x1"], e["y1"], e["s"], e["sy"], e["sp"], e["ang"]), 1, 1))
+            s, size, sp = e["s"], e["sy"], e["sp"]
+            cell = find_cell((e["x1"] + e["x2"]) / 2, e["y1"] + size / 2)
+            if cell:                  # 表題欄の項目名はセルの中央へ
+                cell_text(sheet, cell, s, size, sp)
+            elif "カネコ" in s.replace(" ", ""):  # 社名は用紙の左右中央へ (高さは書式のまま)
+                sheet.text(-text_width(s, size, sp) / 2, e["y1"], s, size, sp)
+            else:
+                sheet.items.append(("text", (e["x1"], e["y1"], s, size, sp, e["ang"]), 1, 1))
 
 
 def fill_title(sheet, f):
-    """表題欄の記入。セル位置は書式の罫線から読んだ値。"""
-    t = sheet.text
-    t(77.0, -33.93, f["品番"], 5.0)
-    t(77.0, -39.92, f["図番"], 5.0)
-    t(77.0, -48.68, f["得意先"], fit_size(f["得意先"], 4.5, 0.3, 61.0), sp=0.3)
-    t(107.17, -61.12, f["品名"], fit_size(f["品名"], 5.0, 0.3, 63.0), sp=0.3, align="C")
-    t(49.67, -59.87, f["尺度"], 4.0, align="C")
-    t(-0.33 + 39.67 / 2 + 19.5, -65.92, f.get("仕様", ""), 4.0, align="C")
-    t(19.67, -72.16, f["材質"], 4.5, align="C")
-    t(19.67, -78.08, f.get("熱処理", ""), 4.5, align="C")
-    t(19.67, -83.95, f.get("表面処理", ""), 4.5, align="C")
-    for x0, key in ((79.67, "承認"), (99.67, "検図"), (119.67, "製図")):
-        if f.get(key + "_日付"):
-            t(x0 + 10, -77.9, f[key + "_日付"], 3.0, align="C")
-        if f.get(key):
-            t(x0 + 10, -85.8, f[key], 5.0, align="C")
+    """表題欄の記入。各セルの中央に置く。"""
+    cell_text(sheet, CELLS["品番_値"], f["品番"], 5.0)
+    cell_text(sheet, CELLS["図番_値"], f["図番"], 5.0)
+    cell_text(sheet, CELLS["得意先_値"], f["得意先"], 4.5, sp=0.3)
+    cell_text(sheet, CELLS["品名_値"], f["品名"], 5.0, sp=0.3)
+    cell_text(sheet, CELLS["尺度_値"], f["尺度"], 4.0)
+    for key in ("材質", "熱処理", "表面処理"):
+        cell_text(sheet, CELLS[key + "_値"], f.get(key, ""), 4.5)
+    for key in ("承認", "検図", "製図"):
+        cell_text(sheet, CELLS[key + "_日付"], f.get(key + "_日付", ""), 3.0)
+        cell_text(sheet, CELLS[key + "_値"], f.get(key, ""), 5.0)
 
 
 # ---------------------------------------------------------------- PDF 出力
