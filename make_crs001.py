@@ -195,6 +195,14 @@ def vdim(sh, y1, y2, x, f1, f2, label, size=4.5):
     sh.text(x - 1.0, (y1 + y2) / 2, label, size, ang=90, align="C")
 
 
+def tol_text(sh, x, y, main, upper, lower, size=4.5, tsize=3.0):
+    """縦向き (90°) の寸法数値に上下の許容差を添える。(x, y) は数値の下端の書き出し位置。"""
+    w = text_width(main, size, 0.5)
+    sh.text(x, y, main, size, ang=90)
+    sh.text(x, y + w + 0.8, lower, tsize, ang=90)
+    sh.text(x - tsize - 0.6, y + w + 0.8, upper, tsize, ang=90)
+
+
 def leader(sh, tx, ty, ex, ey, label, size=4.0):
     w = text_width(label, size, 0.5)
     sh.line(tx, ty, ex, ey)
@@ -209,10 +217,10 @@ SCREW = {
     "S": 3.0,         # ねじ部長さ (先端側)
     "d": 4.0,         # M4
     "d1": 3.242,      # M4 並目 谷の径 (基準寸法)
-    "ds": 3.0,        # 首下の軸径 (参考: 支給の絵の比率から)
-    "dk": 9.4,        # 頭部の径 (参考: JIS B 1111 トラス M4)
-    "k": 2.5,         # 頭部の高さ (参考: 同上)
-    "rim": 0.3,       # 頭部外周の立ち上がり (作図上の値)
+    "ds": 3.0,        # 首下の軸径 d (ミスミ規格表: 3 0/-0.3)
+    "dk": 9.4,        # 頭部の径 A (ミスミ規格表)
+    "k": 2.5,         # 頭部の高さ E (ミスミ規格表)
+    "rim": 0.0,       # 頭部外周の立ち上がり (ミスミの図に合わせてなし。角は r0.3)
 }
 SCALE = 5.0
 
@@ -231,7 +239,8 @@ def draw_screw(sh, sc=SCREW):
 
     # ---- 正面図 外形 (線色 6 = 太線)
     for sg in (1, -1):
-        sh.line(*P(0, sg * rk), *P(-rim, sg * rk), 6)                 # 頭部外周の立ち上がり
+        if rim > 0:
+            sh.line(*P(0, sg * rk), *P(-rim, sg * rk), 6)             # 頭部外周の立ち上がり
         sh.line(*P(0, sg * rs), *P(L - Sl, sg * rs), 6)              # 首下の細い軸
         sh.line(*P(L - Sl, sg * rd), *P(L - ch, sg * rd), 6)         # ねじ外径
         sh.line(*P(L - ch, sg * rd), *P(L, sg * rd1), 6)             # 先端の面取り
@@ -265,22 +274,23 @@ def draw_screw(sh, sc=SCREW):
     xb, xt = P(0, 0)[0], P(L, 0)[0]
     hdim(sh, xb, xt, -10.0, P(0, -rk)[1], P(L, -rd1)[1], "12")
     hdim(sh, P(L - Sl, 0)[0], xt, 45.0, P(L - Sl, rd)[1], P(L, rd1)[1], "3")
-    hdim(sh, P(-k, 0)[0], xb, 57.0, Y0, P(0, rk)[1], "(2.5)")
-    vdim(sh, P(0, -rk)[1], P(0, rk)[1], -32.0, P(-rim, -rk)[0], P(-rim, rk)[0], "(φ9.4)")
+    hdim(sh, P(-k, 0)[0], xb, 57.0, Y0, P(0, rk)[1], "2.5")
+    vdim(sh, P(0, -rk)[1], P(0, rk)[1], -32.0, P(-rim, -rk)[0], P(-rim, rk)[0], "φ9.4")
     # 首下の軸径: 矢印を外側から当て、数値は上へ
     xs = P(5.0, 0)[0]
     ys1, ys2 = P(0, -rs)[1], P(0, rs)[1]
     sh.line(xs, ys1 - 5, xs, ys2 + 15)
     arrow(sh, xs, ys1, 0, 1)
     arrow(sh, xs, ys2, 0, -1)
-    sh.text(xs - 1.0, ys2 + 9.0, "(φ3)", 4.5, ang=90, align="C")
+    tol_text(sh, xs - 1.0, ys2 + 4.0, "φ3", "0", "-0.3")
+    leader(sh, *P(-0.25, rk - 0.35), -6.0, 60.0, "r0.3")
     leader(sh, *P(L - Sl / 2 - 0.4, rd), 62.0, 60.0, "M4（並目）")
     leader(sh, HX + aw + 0.5, Y0 + al * 0.6, -62.0, 60.0, "十字穴 No.2")
 
     # ---- 注記
     notes = ["注記",
-             "1. ねじ部は先端側の長さ 3。首下の軸はねじの谷の径より細く、脱落防止とする。",
-             "2. （　）内は参考寸法。",
+             "1. ねじはメートル並目、ねじ部は先端側の長さ 3、先端は平先。",
+             "2. 首下の軸 φ3 はねじの谷の径より細く、脱落防止とする。",
              "3. 指示のない角はバリなきこと。"]
     y = -22.0
     for i, s in enumerate(notes):
@@ -294,7 +304,8 @@ TITLE = {
     "得意先": "有限会社シー・アール・エス",
     "品名": "SUS脱落防止トラス十字ネジM4×12,S=3",
     "尺度": "5/1",
-    "材質": "SUS",
+    "材質": "SUS304相当",
+    "表面処理": "なし",
 }
 
 
