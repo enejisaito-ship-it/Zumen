@@ -156,6 +156,138 @@ def render(sheet, path, title):
     c.save()
 
 
+# ---------------------------------------------------------------- 寸法記入 (書式と同じ開いた矢印: 長さ 2、開き 15°)
+ARROW = 2.0
+
+
+def arrow(sh, tx, ty, dx, dy):
+    n = math.hypot(dx, dy)
+    dx, dy = dx / n, dy / n
+    for s in (1, -1):
+        a = math.radians(15) * s
+        rx = dx * math.cos(a) - dy * math.sin(a)
+        ry = dx * math.sin(a) + dy * math.cos(a)
+        sh.line(tx, ty, tx - rx * ARROW, ty - ry * ARROW)
+
+
+def hdim(sh, x1, x2, y, f1, f2, label, size=4.5, outside=False):
+    for x, f in ((x1, f1), (x2, f2)):
+        s = 1 if y > f else -1
+        sh.line(x, f + s * 1.0, x, y + s * 1.5)
+    if outside:
+        sh.line(x1 - 6, y, x2 + 6, y)
+        arrow(sh, x1, y, 1, 0)
+        arrow(sh, x2, y, -1, 0)
+    else:
+        sh.line(x1, y, x2, y)
+        arrow(sh, x1, y, -1, 0)
+        arrow(sh, x2, y, 1, 0)
+    sh.text((x1 + x2) / 2, y + 1.0, label, size, align="C")
+
+
+def vdim(sh, y1, y2, x, f1, f2, label, size=4.5):
+    for yy, f in ((y1, f1), (y2, f2)):
+        s = 1 if x > f else -1
+        sh.line(f + s * 1.0, yy, x + s * 1.5, yy)
+    sh.line(x, y1, x, y2)
+    arrow(sh, x, y1, 0, -1)
+    arrow(sh, x, y2, 0, 1)
+    sh.text(x - 1.0, (y1 + y2) / 2, label, size, ang=90, align="C")
+
+
+def leader(sh, tx, ty, ex, ey, label, size=4.0):
+    w = text_width(label, size, 0.5)
+    sh.line(tx, ty, ex, ey)
+    sh.line(ex, ey, ex + w + 2, ey)
+    arrow(sh, tx, ty, tx - ex, ty - ey)
+    sh.text(ex + 1, ey + 0.8, label, size)
+
+
+# ---------------------------------------------------------------- ねじの寸法 (実寸 mm)
+SCREW = {
+    "L": 12.0,        # 呼び長さ (座面から先端)
+    "S": 3.0,         # ねじ部長さ (先端側)
+    "d": 4.0,         # M4
+    "d1": 3.242,      # M4 並目 谷の径 (基準寸法)
+    "ds": 3.0,        # 首下の軸径 (参考: 支給の絵の比率から)
+    "dk": 9.4,        # 頭部の径 (参考: JIS B 1111 トラス M4)
+    "k": 2.5,         # 頭部の高さ (参考: 同上)
+    "rim": 0.3,       # 頭部外周の立ち上がり (作図上の値)
+}
+SCALE = 5.0
+
+
+def draw_screw(sh, sc=SCREW):
+    S_ = SCALE
+    X0, Y0 = -10.0, 25.0          # 正面図: 座面と中心線
+    HX = -80.0                    # 頭部側から見た図の中心 x
+
+    def P(x, r):
+        return X0 + S_ * x, Y0 + S_ * r
+
+    L, Sl, k = sc["L"], sc["S"], sc["k"]
+    rd, rd1, rs, rk, rim = sc["d"] / 2, sc["d1"] / 2, sc["ds"] / 2, sc["dk"] / 2, sc["rim"]
+    ch = rd - rd1                 # 先端の面取り (谷の径まで)
+
+    # ---- 正面図 外形 (線色 6 = 太線)
+    for sg in (1, -1):
+        sh.line(*P(0, sg * rk), *P(-rim, sg * rk), 6)                 # 頭部外周の立ち上がり
+        sh.line(*P(0, sg * rs), *P(L - Sl, sg * rs), 6)              # 首下の細い軸
+        sh.line(*P(L - Sl, sg * rd), *P(L - ch, sg * rd), 6)         # ねじ外径
+        sh.line(*P(L - ch, sg * rd), *P(L, sg * rd1), 6)             # 先端の面取り
+        sh.line(*P(L - Sl, sg * rd1), *P(L - ch, sg * rd1), 1)       # ねじ谷径 (細線)
+    sh.line(*P(0, -rk), *P(0, rk), 6)                                # 座面
+    sh.line(*P(L - Sl, -rd), *P(L - Sl, rd), 6)                      # 軸とねじ部の段
+    sh.line(*P(L, -rd1), *P(L, rd1), 6)                              # 先端面
+    # 頭部の丸み: 外周 (rim, rk) と頂点 (k, 0) を通る円弧
+    h = k - rim
+    R = (rk ** 2 + h ** 2) / (2 * h)
+    cx, _ = P(-k + R, 0)
+    a = math.degrees(math.atan2(rk, -(R - h)))
+    sh.arc(cx, Y0, S_ * R, a, 360 - a, 6)
+    # 十字穴 (かくれ線、略図)
+    for sg in (1, -1):
+        sh.line(*P(-k + 0.15, sg * 1.1), *P(-k + 1.9, sg * 0.25), 1, 2)
+        sh.line(*P(-k + 1.9, sg * 0.25), *P(-k + 2.1, 0), 1, 2)
+    sh.line(*P(-k - 0.7, 0), *P(L + 0.7, 0), 1, 6)                   # 中心線
+
+    # ---- 頭部側から見た図 (第三角法: 左側面図を左に置く)
+    sh.arc(HX, Y0, S_ * rk, 0, 360, 6)
+    aw, al = 0.55 * S_, 2.2 * S_
+    cross = [(aw, al), (-aw, al), (-aw, aw), (-al, aw), (-al, -aw), (-aw, -aw),
+             (-aw, -al), (aw, -al), (aw, -aw), (al, -aw), (al, aw), (aw, aw)]
+    for p, q in zip(cross, cross[1:] + cross[:1]):
+        sh.line(HX + p[0], Y0 + p[1], HX + q[0], Y0 + q[1], 6)
+    sh.line(HX - S_ * rk - 3, Y0, HX + S_ * rk + 3, Y0, 1, 6)
+    sh.line(HX, Y0 - S_ * rk - 3, HX, Y0 + S_ * rk + 3, 1, 6)
+
+    # ---- 寸法
+    xb, xt = P(0, 0)[0], P(L, 0)[0]
+    hdim(sh, xb, xt, -10.0, P(0, -rk)[1], P(L, -rd1)[1], "12")
+    hdim(sh, P(L - Sl, 0)[0], xt, 45.0, P(L - Sl, rd)[1], P(L, rd1)[1], "3")
+    hdim(sh, P(-k, 0)[0], xb, 57.0, Y0, P(0, rk)[1], "(2.5)")
+    vdim(sh, P(0, -rk)[1], P(0, rk)[1], -32.0, P(-rim, -rk)[0], P(-rim, rk)[0], "(φ9.4)")
+    # 首下の軸径: 矢印を外側から当て、数値は上へ
+    xs = P(5.0, 0)[0]
+    ys1, ys2 = P(0, -rs)[1], P(0, rs)[1]
+    sh.line(xs, ys1 - 5, xs, ys2 + 15)
+    arrow(sh, xs, ys1, 0, 1)
+    arrow(sh, xs, ys2, 0, -1)
+    sh.text(xs - 1.0, ys2 + 9.0, "(φ3)", 4.5, ang=90, align="C")
+    leader(sh, *P(L - Sl / 2 - 0.4, rd), 62.0, 60.0, "M4（並目）")
+    leader(sh, HX + aw + 0.5, Y0 + al * 0.6, -62.0, 60.0, "十字穴 No.2")
+
+    # ---- 注記
+    notes = ["注記",
+             "1. ねじ部は先端側の長さ 3。首下の軸はねじの谷の径より細く、脱落防止とする。",
+             "2. （　）内は参考寸法。",
+             "3. 指示のない角はバリなきこと。"]
+    y = -22.0
+    for i, s in enumerate(notes):
+        sh.text(-135.0, y, s, 4.0 if i == 0 else 3.5, sp=0.3)
+        y -= 6.0
+
+
 TITLE = {
     "品番": "CRS-001",
     "図番": "",
@@ -172,10 +304,12 @@ def main(out, draft=False):
     fill_title(sh, TITLE)
     if draft:
         sh.text(0, 40, "（図はねじの寸法を確認してから描く）", 6.0, align="C")
+    else:
+        draw_screw(sh)
     render(sh, os.path.join(out, "CRS-001_draft.pdf" if draft else "CRS-001.pdf"),
            "CRS-001 SUS脱落防止トラス十字ネジ M4×12, S=3")
     print("ok")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else ".", draft=True)
+    main(sys.argv[1] if len(sys.argv) > 1 else ".")
