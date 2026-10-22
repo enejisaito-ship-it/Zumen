@@ -4,7 +4,8 @@
 得意先の現品測定値 (Excel) から起こした。測定値: 全長 52.63、二面幅 13 (スパナ)、頭部高さ 5.8、
 首下 46.89、胴径 9.8〜9.9、胴長さ 26 (スケール)、ねじ山径 7.74、ねじ長さ 18.5 (スケール)、
 胴の両端に斜めのくびれ (長さは 1〜2 の推定)。
-くびれは首下長さと胴・ねじの長さの差から 1.25 ずつとした。ピッチは測定がないので並目 1.25 とした。
+胴 φ9.9 の両端は C2 の面取りとし、ねじ部は元資料の通り先端から 18.5 で、ねじ側の面取りの斜面上に終わるとした。
+ピッチは測定がないので並目 1.25 とした。
 """
 import math
 import os
@@ -22,10 +23,9 @@ B = {
     "d1": 6.647,     # おねじの谷の径 (図の線用)
     "ds": 9.9,       # 胴径
     "ds_tol": ("0", "-0.05"),
-    "dn": 8.0,       # 首下のくびれの座面側の径
-    "ln": 1.25,      # 首下のくびれの長さ
-    "lt": 1.25,      # 胴からねじへのくびれ (テーパ) の長さ
-    "lb": 26.0,      # 胴の長さ
+    "cs": 2.0,       # 胴の両端の面取り (C2)
+    "lth": 18.5,     # ねじ部の長さ (先端から。ねじ側の面取りの斜面上で終わる)
+    "lb": 26.0,      # 胴の円筒部の長さ
     "l": 47.0,       # 首下長さ
     "ce": 0.8,       # ねじ先の面取り
 }
@@ -67,12 +67,16 @@ def draw_bolt(sh):
     S = SCALE
     s, k = B["s"], B["k"]
     e = s / math.cos(math.radians(30))                 # 対角距離 (図の線用)
-    rd, r1, rs, rn = B["d"] / 2, B["d1"] / 2, B["ds"] / 2, B["dn"] / 2
+    rd, r1, rs, cs = B["d"] / 2, B["d1"] / 2, B["ds"] / 2, B["cs"]
+    rn = rs - cs                                       # 首下側の面取りの座面での半径
     ch = (e / 2 - s / 2) * math.tan(math.radians(30))  # 頭部上面の 30° 面取りの角での深さ
-    x1 = k + B["ln"]                                   # 胴の始まり
-    x2 = x1 + B["lb"]                                  # 胴の終わり
-    x3 = x2 + B["lt"]                                  # ねじの始まり
+    x1 = k + cs                                        # 胴の円筒部の始まり
+    x2 = x1 + B["lb"]                                  # 胴の円筒部の終わり
+    x3 = x2 + (rs - rd)                                # ねじ側の面取り (45°) が山の径と交わる位置
     L = k + B["l"]                                     # 全長
+    xt = L - B["lth"]                                  # ねじ部の終わり (ねじ側の面取りの斜面上)
+    assert x2 < xt < x3
+    rt = rs - (xt - x2)                                # ねじ部の終わりでの面取りの半径
     ce = B["ce"]
     Y0 = 25.0
     gap = 30.0
@@ -90,17 +94,17 @@ def draw_bolt(sh):
         sh.line(*P(ch, sg * e / 4), *P(k, sg * e / 4), 6)          # 六角の稜線
         curve3(sh, P, (ch, sg * e / 4), (0, sg * s / 2 * math.sin(math.radians(60))), (ch, sg * e / 2))
         sh.line(*P(k, sg * e / 2), *P(k, sg * rn), 6)              # 座面
-        sh.line(*P(k, sg * rn), *P(x1, sg * rs), 6)                # 首下のくびれ
+        sh.line(*P(k, sg * rn), *P(x1, sg * rs), 6)                # 首下側の C2 面取り
         sh.line(*P(x1, sg * rs), *P(x2, sg * rs), 6)               # 胴
-        sh.line(*P(x2, sg * rs), *P(x3, sg * rd), 6)               # 胴からねじへのくびれ
+        sh.line(*P(x2, sg * rs), *P(x3, sg * rd), 6)               # ねじ側の C2 面取り
         sh.line(*P(x3, sg * rd), *P(L - ce, sg * rd), 6)           # ねじの山の径
         sh.line(*P(L - ce, sg * rd), *P(L, sg * (rd - ce)), 6)     # ねじ先の面取り
-        sh.line(*P(x3, sg * r1), *P(L, sg * r1), 1)                # ねじの谷の径 (細線)
+        sh.line(*P(xt, sg * r1), *P(L, sg * r1), 1)                # ねじの谷の径 (細線)
     sh.line(*P(0, -s / 2), *P(0, s / 2), 6)                        # 頭部上面
     curve3(sh, P, (ch, -e / 4), (0, 0), (ch, e / 4))
     for x in (x1, x2):
-        sh.line(*P(x, -rs), *P(x, rs), 6)                          # くびれと胴の境
-    sh.line(*P(x3, -rd), *P(x3, rd), 6)                            # 完全ねじ部の境
+        sh.line(*P(x, -rs), *P(x, rs), 6)                          # 面取りと胴の境
+    sh.line(*P(xt, -rt), *P(xt, rt), 6)                            # ねじ部の終わり (面取りの斜面上)
     sh.line(*P(L, -(rd - ce)), *P(L, rd - ce), 6)                  # 先端面
     sh.line(*P(-0.5, 0), *P(L + 0.5, 0), 1, 6)                     # 中心線
 
@@ -118,11 +122,9 @@ def draw_bolt(sh):
     # ---- 寸法
     top = Y0 + R + 8.0
     hdim(sh, P(0, 0)[0], P(k, 0)[0], top, P(0, s / 2)[1], P(k, e / 2)[1], fmt(k))
-    hdim_fit(sh, P(x2, 0)[0], P(x3, 0)[0], Y0 + S * rs + 10.0, P(x2, rs)[1], P(x3, rd)[1], fmt(B["lt"]))
     bot = Y0 - R - 8.0
-    hdim_fit(sh, P(k, 0)[0], P(x1, 0)[0], bot, P(k, -rn)[1], P(x1, -rs)[1], fmt(B["ln"]))
     hdim(sh, P(x1, 0)[0], P(x2, 0)[0], bot, P(x1, -rs)[1], P(x2, -rs)[1], fmt(B["lb"]))
-    hdim(sh, P(x3, 0)[0], P(L, 0)[0], bot, P(x3, -rd)[1], P(L, -(rd - ce))[1], f"({fmt(L - x3)})")
+    hdim(sh, P(xt, 0)[0], P(L, 0)[0], bot, P(xt, -rt)[1], P(L, -(rd - ce))[1], fmt(B["lth"]))
     hdim(sh, P(k, 0)[0], P(L, 0)[0], bot - 10.0, P(k, -e / 2)[1], P(L, -(rd - ce))[1], fmt(B["l"]))
     # 胴径 (許容差付き。胴の中で寸法線を引く)
     xv = P(x1 + 9.0, 0)[0]
@@ -130,8 +132,9 @@ def draw_bolt(sh):
     arrow(sh, xv, P(0, -rs)[1], 0, -1)
     arrow(sh, xv, P(0, rs)[1], 0, 1)
     tol_text(sh, xv - 1.0, Y0 - 7.0, f"φ{fmt(B['ds'])}", *B["ds_tol"])
-    # 首下のくびれの座面側の径
-    leader(sh, *P(k, rn), P(k, 0)[0] + 10.0, Y0 + R + 4.0, f"φ{fmt(B['dn'])}")
+    # 胴の両端の面取り
+    leader(sh, *P(k + cs / 2, rn + cs / 2), P(k, 0)[0] + 12.0, Y0 + R + 4.0, f"C{fmt(cs)}")
+    leader(sh, *P(x2 + 0.25, rs - 0.25), P(x2, 0)[0] - 10.0, Y0 + R + 4.0, f"C{fmt(cs)}", side="L")
     # ねじ
     leader(sh, *P(L - 4.0, rd), P(L, 0)[0] - 6.0, Y0 + R + 2.0, f"M{fmt(B['d'])}×{fmt(B['p'])}-6g")
     leader(sh, *P(L - ce / 2, -(rd - ce / 2)), P(L, 0)[0] + 4.0, Y0 - S * rd - 8.0, f"C{fmt(ce)}")
