@@ -48,6 +48,10 @@ class Sheet:
     def solid(self, pts):
         self.items.append(("solid", pts, 1, 1))
 
+    def fill(self, pts, gray):
+        """多角形を灰色 (0 = 黒、1 = 白) で塗る。線より先に描くこと。"""
+        self.items.append(("fill", (pts, gray), 1, 1))
+
     def text(self, x, y, s, size=5.0, sp=0.5, ang=0.0, align="L"):
         """JWW と同じく (x, y) は文字列の左下。align=C/R は (x, y) を中央/右下とみなす。"""
         w = text_width(s, size, sp)
@@ -184,10 +188,13 @@ def render(sheet, path, title):
                 u += (size if is_full(ch) else size / 2) + (sp if is_full(ch) else sp / 2)
             c.restoreState()
             continue
-        if kind == "solid":
+        if kind in ("solid", "fill"):
+            pts = data if kind == "solid" else data[0]
+            if kind == "fill":
+                c.setFillGray(data[1])
             p = c.beginPath()
-            p.moveTo(*data[0])
-            for q in data[1:]:
+            p.moveTo(*pts[0])
+            for q in pts[1:]:
                 p.lineTo(*q)
             p.close()
             c.drawPath(p, stroke=0, fill=1)
