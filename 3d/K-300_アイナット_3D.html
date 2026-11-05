@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>K-300 アイナット</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* 製図用紙の色調。左に大きな3D表示、右に表題欄のような情報欄。赤は図面への朱書き。 */
+:root {
+  --paper: #eff1ed;
+  --panel: #f9faf7;
+  --ink: #1c2220;
+  --muted: #5a6560;
+  --rule: #d2d7d1;
+  --accent: #c2372c;
+  --stage-top: #f4f5f2;
+  --stage-bot: #d6dbd4;
+  --ax-x: #c2372c;
+  --ax-y: #2f8a4c;
+  --ax-z: #2f5fb8;
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131615; --panel: #1a1e1d; --ink: #e3e7e4; --muted: #97a19c; --rule: #2d3331;
+    --accent: #ff6e5f; --stage-top: #262b29; --stage-bot: #101312;
+    --ax-x: #ff6e5f; --ax-y: #5fc77f; --ax-z: #6f9cff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #131615; --panel: #1a1e1d; --ink: #e3e7e4; --muted: #97a19c; --rule: #2d3331;
+  --accent: #ff6e5f; --stage-top: #262b29; --stage-bot: #101312;
+  --ax-x: #ff6e5f; --ax-y: #5fc77f; --ax-z: #6f9cff; color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.6; }
+.app {
+  height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto minmax(0, 1fr);
+  box-sizing: border-box;
+}
+header {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px;
+  padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-bottom: 1px solid var(--rule); background: var(--panel);
+}
+header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; text-wrap: balance; }
+header .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-family: var(--font-mono); font-size: 12.5px; }
+header .meta b { color: var(--ink); font-weight: 500; }
+.stage { position: relative; min-height: 0; min-width: 0; overflow: hidden; background: var(--stage-bot); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#gl { touch-action: none; cursor: grab; outline: none; }
+#gl:active { cursor: grabbing; }
+#gl:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+#ov { pointer-events: none; }
+.hint {
+  position: absolute; right: 12px; bottom: 10px; margin: 0; pointer-events: none;
+  font-size: 12px; color: var(--muted); text-align: right;
+}
+#nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink); }
+aside {
+  min-height: 0; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--rule);
+  padding-block: 16px 24px; padding-left: 16px; padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 22px;
+}
+aside h2 { margin: 0 0 8px; font-size: 11.5px; font-weight: 500; letter-spacing: 0.12em; color: var(--muted); }
+.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+button {
+  font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 1px solid var(--rule);
+  border-radius: 4px; padding: 6px 4px; cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--panel); }
+.toggles { display: grid; gap: 8px; }
+.toggles label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggles input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.toggles small { color: var(--muted); font-size: 12px; }
+dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; font-size: 13px; }
+dt { color: var(--muted); }
+dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; font-size: 13px; }
+.redline { color: var(--accent); }
+.ops { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  .app { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .stage { height: 62vh; min-height: 340px; }
+  aside { border-left: 0; border-top: 1px solid var(--rule); overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>OMプーリングアイ Kタイプ　K-300 アイナット</h1>
+    <div class="meta">
+      <span>図番 <b>13E30438</b></span>
+      <span>材質 <b>SS400</b></span>
+      <span>めっき <b>Ep-Fe/Zn 8/CM2</b></span>
+      <span>単位 <b>mm</b></span>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="gl" tabindex="0" aria-label="K-300 アイナットの3Dモデル。ドラッグで回転、ホイールで拡大縮小"></canvas>
+    <canvas id="ov"></canvas>
+    <p class="hint">ドラッグ: 回転　右ドラッグ / Shift+ドラッグ: 移動　ホイール: 拡大縮小</p>
+    <div id="nogl" hidden>このブラウザでは WebGL が使えないため表示できません。Chrome、Edge、Firefox、Safari の最新版で開いてください。</div>
+  </div>
+
+  <aside>
+    <section>
+      <h2>視点</h2>
+      <div class="views" id="views">
+        <button type="button" id="v-iso" data-view="iso" aria-pressed="true">等角</button>
+        <button type="button" id="v-front" data-view="front" aria-pressed="false">正面</button>
+        <button type="button" id="v-top" data-view="top" aria-pressed="false">平面</button>
+        <button type="button" id="v-right" data-view="right" aria-pressed="false">右側面</button>
+        <button type="button" id="v-left" data-view="left" aria-pressed="false">左側面</button>
+        <button type="button" id="v-fit" data-view="fit" aria-pressed="false">全体表示</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>表示</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="t-dims" checked><span>寸法</span></label>
+        <label><input type="checkbox" id="t-sec"><span>断面 <small>中心で切って手前を外す</small></span></label>
+        <label><input type="checkbox" id="t-screw"><span>止めねじ M3×6 <small>組込み状態</small></span></label>
+        <label><input type="checkbox" id="t-ortho"><span>平行投影 <small>遠近なし</small></span></label>
+      </div>
+    </section>
+
+    <section class="ops">
+      <h2>操作</h2>
+      マウス: 左ドラッグで回転、右ドラッグか Shift+ドラッグで移動、ホイールで拡大縮小。<br>
+      タッチ: 1本指で回転、2本指でつまんで拡大縮小と移動。<br>
+      キー: 矢印で回転、+ と − で拡大縮小。
+    </section>
+
+    <section>
+      <h2>図面の寸法</h2>
+      <dl>
+        <dt>全長</dt><dd>34 ±0.5</dd>
+        <dt>ブロック長さ</dt><dd>10 ±0.5</dd>
+        <dt>アイ内側から</dt><dd>18</dd>
+        <dt>高さ</dt><dd>22 ±1</dd>
+        <dt>厚さ</dt><dd>16 (2-R8)</dd>
+        <dt>アイ</dt><dd>丸棒 φ6、R11 / R5</dd>
+        <dt>アイ内幅</dt><dd>10 ±1</dd>
+        <dt>ねじ穴</dt><dd>M8、入口 C1</dd>
+        <dt>止めねじ穴</dt><dd>M3 タップ、端から 5</dd>
+        <dt>面取り</dt><dd>C3</dd>
+      </dl>
+    </section>
+
+    <section>
+      <h2>図面の指定</h2>
+      <ul>
+        <li>M3 タップには六角穴付止めねじ M3×6 (48A30049) を組み込む。止めねじはアイナットの表面から出ないこと。</li>
+        <li class="redline">手書き: M3 のねじ オーバータップ (+0.03)</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>図面にないためモデルで決めたこと</h2>
+      <ul>
+        <li>M8 の深さ: ブロックを貫通 (10)。</li>
+        <li>M3 タップ: 上面から M8 の穴まで。</li>
+        <li>C3: ブロックのアイ側の外周全体。</li>
+        <li>丸棒がブロックに入る深さ: 2 (外からは見えない)。</li>
+        <li>ねじ山は見た目のための近似 (M8 ピッチ 1.25、M3 ピッチ 0.5)。</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const stage = document.getElementById("stage");
+  const cv = document.getElementById("gl");
+  const ov = document.getElementById("ov");
+  const ctx = ov.getContext("2d");
+  const gl = cv.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: false });
+  if (!gl) { document.getElementById("nogl").hidden = false; return; }
+
+  // 形状は SDF (表面までの距離の式) で表し、レイマーチングで描く。座標の単位は mm。
+  // x: 軸方向 (アイの先端 0、ブロックの右端 34)、y: 高さ (22 の方向)、z: 厚さ (16 の方向)。
+  const VS = "attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }";
+  const FS = `
+precision highp float;
+uniform vec2 uRes;
+uniform vec3 uRo, uR, uU, uF;
+uniform float uTan, uOrtho, uOH, uSec, uScrew;
+uniform vec3 uBgA, uBgB, uLine, uAcc;
+const float PI2 = 6.2831853;
+
+float stadium(vec2 q) {               // 断面 22 x 16、両端 R8。q = (y, z)
+  q.x = abs(q.x); q.x -= min(q.x, 3.0);
+  return length(q) - 8.0;
+}
+float thr(float ax, float ang, float P, float rMaj, float rMin) {   // ねじ山の半径 (近似)
+  float u = ax / P - ang / PI2;
+  float h = abs(fract(u) - 0.5) * 2.0;
+  return mix(rMaj, rMin, clamp(h * 1.3 - 0.15, 0.0, 1.0));
+}
+float sdHex(vec2 p, float r) {
+  const vec3 k = vec3(-0.866025404, 0.5, 0.577350269);
+  p = abs(p);
+  p -= 2.0 * min(dot(k.xy, p), 0.0) * k.xy;
+  p -= vec2(clamp(p.x, -k.z * r, k.z * r), r);
+  return length(p) * sign(p.y);
+}
+float holes(vec3 p) {
+  float r = length(p.yz);
+  float h8 = r - thr(p.x, atan(p.z, p.y), 1.25, 4.0, 3.32);          // M8 (貫通)
+  h8 = max(h8, 21.0 - p.x);
+  h8 = min(h8, (r - 5.0 + (34.0 - p.x)) * 0.7071068);                 // 入口 C1
+  vec2 q = vec2(p.x - 29.0, p.z);
+  float h3 = length(q) - thr(p.y, atan(q.y, q.x), 0.5, 1.5, 1.23);    // M3 (端から 5、上面から)
+  h3 = max(h3, 2.0 - p.y);
+  return min(h8, h3);
+}
+float body(vec3 p) {
+  float dS = stadium(p.yz);
+  float blk = max(dS, max(24.0 - p.x, p.x - 34.0));                   // ブロック x 24..34
+  blk = max(blk, (dS + 27.0 - p.x) * 0.7071068);                      // C3
+  float w;
+  if (p.x < 11.0) {                                                   // アイの曲げ部 (中心 x=11、R8 の丸棒中心)
+    vec2 q = vec2(length(p.xy - vec2(11.0, 0.0)) - 8.0, p.z);
+    w = length(q) - 3.0;
+  } else {                                                            // アイの直線部
+    w = max(length(vec2(abs(p.y) - 8.0, p.z)) - 3.0, p.x - 26.0);
+  }
+  return max(min(blk, w), -holes(p));
+}
+float screw(vec3 p) {                                                 // 止めねじ M3x6
+  vec2 q = vec2(p.x - 29.0, p.z);
+  float d = length(q) - 0.97 * thr(p.y, atan(q.y, q.x), 0.5, 1.5, 1.23);
+  d = max(d, max(4.4 - p.y, p.y - 10.4));
+  return max(d, -max(sdHex(q, 0.75), 8.9 - p.y));
+}
+vec2 map(vec3 p) {
+  vec2 res = vec2(body(p), 1.0);
+  if (uScrew > 0.5) { float s = screw(p); if (s < res.x) res = vec2(s, 2.0); }
+  if (uSec > 0.5) res.x = max(res.x, p.z);
+  return res;
+}
+vec3 nrm(vec3 p, float e) {
+  vec2 k = vec2(1.0, -1.0) * e;
+  return normalize(k.xyy * map(p + k.xyy).x + k.yyx * map(p + k.yyx).x +
+                   k.yxy * map(p + k.yxy).x + k.xxx * map(p + k.xxx).x);
+}
+float shadow(vec3 ro, vec3 rd) {
+  float res = 1.0, t = 0.08;
+  for (int i = 0; i < 48; i++) {
+    float h = map(ro + rd * t).x;
+    res = min(res, 10.0 * h / t);
+    t += clamp(h * 0.8, 0.03, 1.5);
+    if (res < 0.003 || t > 45.0) break;
+  }
+  return clamp(res, 0.0, 1.0);
+}
+float occl(vec3 p, vec3 n) {
+  float o = 0.0, s = 1.0;
+  for (int i = 1; i <= 5; i++) {
+    float h = 0.3 * float(i);
+    o += (h - map(p + n * h).x) * s;
+    s *= 0.7;
+  }
+  return clamp(1.0 - 0.55 * o, 0.0, 1.0);
+}
+float pixAt(float t) { return uOrtho > 0.5 ? uOH * 2.0 / uRes.y : t * uTan * 2.0 / uRes.y; }
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * uRes.y);
+  vec3 bg = mix(uBgB, uBgA, gl_FragCoord.y / uRes.y);
+  vec3 ro, rd;
+  if (uOrtho > 0.5) { ro = uRo + (uv.x * uR + uv.y * uU) * uOH; rd = uF; }
+  else { ro = uRo; rd = normalize(uF + (uv.x * uR + uv.y * uU) * uTan); }
+
+  vec3 C = vec3(17.0, 0.0, 0.0);
+  vec3 oc = ro - C;
+  float b = dot(oc, rd), c = dot(oc, oc) - 23.0 * 23.0, disc = b * b - c;
+  if (disc < 0.0) { gl_FragColor = vec4(bg, 1.0); return; }
+  float sq = sqrt(disc);
+  float t = max(-b - sq, 0.0), t1 = -b + sq;
+  bool hit = false; float id = 0.0, mr = 1e5;
+  for (int i = 0; i < 240; i++) {
+    vec2 h = map(ro + rd * t);
+    float px = pixAt(t);
+    if (h.x < 0.35 * px) { hit = true; id = h.y; break; }
+    mr = min(mr, h.x / px);
+    t += h.x * 0.75;
+    if (t > t1) break;
+  }
+  if (!hit) {
+    float a = 1.0 - smoothstep(0.35, 1.4, mr);                        // 外形線
+    gl_FragColor = vec4(mix(bg, uLine, a * 0.85), 1.0);
+    return;
+  }
+  vec3 p = ro + rd * t;
+  vec3 n = nrm(p, max(0.0015, 0.4 * pixAt(t)));
+  bool cut = uSec > 0.5 && abs(p.z) < 2.0 * pixAt(t) + 0.002 && n.z > 0.9;
+
+  vec3 base = id > 1.5 ? vec3(0.17, 0.17, 0.19) : vec3(0.80, 0.82, 0.85);
+  float specK = id > 1.5 ? 0.25 : 0.55;
+  if (cut) {
+    float s = fract((p.x + p.y) / 1.3);
+    base = id > 1.5 ? vec3(0.45) : vec3(0.93, 0.93, 0.91);
+    if (s < 0.16) base = mix(base, uAcc, 0.85);
+    specK = 0.05;
+  }
+  base = pow(base, vec3(2.2));
+  vec3 L = normalize(-uF * 0.55 + uU * 0.75 - uR * 0.45);
+  vec3 L2 = normalize(uR * 0.8 - uF * 0.25 - uU * 0.15);
+  float sh = shadow(p + n * 0.02, L);
+  float ao = occl(p, n);
+  float dif = clamp(dot(n, L), 0.0, 1.0) * sh;
+  float dif2 = clamp(dot(n, L2), 0.0, 1.0);
+  float hemi = 0.5 + 0.5 * dot(n, uU);
+  vec3 H = normalize(L - rd);
+  float spe = pow(clamp(dot(n, H), 0.0, 1.0), 42.0) * sh;
+  float fre = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+  vec3 col = base * (0.10 + 0.22 * hemi + 0.95 * dif + 0.22 * dif2) * ao;
+  col += vec3(spe * specK) + vec3(fre * 0.06 * ao);
+  col = pow(col, vec3(1.0 / 2.2));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const aLoc = gl.getAttribLocation(prog, "a");
+  gl.enableVertexAttribArray(aLoc);
+  gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+  const U = {};
+  ["uRes", "uRo", "uR", "uU", "uF", "uTan", "uOrtho", "uOH", "uSec", "uScrew", "uBgA", "uBgB", "uLine", "uAcc"]
+    .forEach((n) => { U[n] = gl.getUniformLocation(prog, n); });
+
+  // ---- ベクトル
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => mul(a, 1 / Math.hypot(a[0], a[1], a[2]));
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const deg = Math.PI / 180;
+
+  // ---- 視点
+  const TAN = Math.tan(14 * deg);              // 画角 28°
+  const PITCH_LIM = 89.5 * deg;
+  const CENTER = [17, 0, 0];
+  const VIEWS = {
+    iso: { yaw: 40 * deg, pitch: 28 * deg },
+    front: { yaw: 0, pitch: 0 },
+    top: { yaw: 0, pitch: PITCH_LIM },
+    right: { yaw: 90 * deg, pitch: 0 },
+    left: { yaw: -90 * deg, pitch: 0 },
+  };
+  const st = { T: CENTER.slice(), yaw: VIEWS.iso.yaw, pitch: VIEWS.iso.pitch, dist: 100, ortho: false, sec: false, screw: false, dims: true };
+  let W = 1, H = 1, DPR = 1, scale = 1, cam = null, theme = null;
+
+  function fitDist() {
+    const aspect = W / H;
+    return 21.5 / (TAN * Math.min(1, aspect)) * (st.dims ? 1.32 : 1.12);
+  }
+  function camera() {
+    const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch), cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
+    const back = [cp * sy, sp, cp * cy];
+    const F = mul(back, -1);
+    const R = norm(cross(F, [0, 1, 0]));
+    const Up = cross(R, F);
+    const ro = add(st.T, mul(back, st.dist));
+    const oh = st.dist * TAN;
+    const roO = sub(st.T, mul(F, 80));        // 平行投影ではモデルの外から光線を出す
+    return { F, R, U: Up, ro, oh, roO };
+  }
+  function project(p) {
+    const c = cam;
+    let x, y;
+    if (st.ortho) {
+      const v = sub(p, st.T);
+      x = dot(v, c.R) / c.oh; y = dot(v, c.U) / c.oh;
+    } else {
+      const v = sub(p, c.ro);
+      const z = dot(v, c.F);
+      if (z < 0.5) return null;
+      x = dot(v, c.R) / (z * TAN); y = dot(v, c.U) / (z * TAN);
+    }
+    return [W / 2 + x * H / 2, H / 2 - y * H / 2];
+  }
+
+  // ---- 色 (CSS の値を読む)
+  function hex(s) {
+    s = s.trim().replace("#", "");
+    if (s.length === 3) s = s.split("").map((ch) => ch + ch).join("");
+    const n = parseInt(s, 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (n) => cs.getPropertyValue(n).trim();
+    theme = {
+      top: hex(v("--stage-top")), bot: hex(v("--stage-bot")), line: hex(v("--ink")), acc: hex(v("--accent")),
+      ink: v("--ink"), halo: v("--stage-top"), muted: v("--muted"), accent: v("--accent"),
+      ax: [v("--ax-x"), v("--ax-y"), v("--ax-z")], mono: v("--font-mono"),
+    };
+  }
+
+  // ---- 描画
+  let pending = false, idleTimer = 0;
+  function request() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
+  function busy() {
+    scale = 0.5;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { scale = 1; request(); }, 200);
+    request();
+  }
+  function sizeCanvas() {
+    const r = stage.getBoundingClientRect();
+    W = Math.max(1, r.width); H = Math.max(1, r.height);
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(W * DPR * scale)), h = Math.max(1, Math.round(H * DPR * scale));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ow = Math.round(W * DPR), oh = Math.round(H * DPR);
+    if (ov.width !== ow || ov.height !== oh) { ov.width = ow; ov.height = oh; }
+  }
+  function frame() {
+    pending = false;
+    sizeCanvas();
+    cam = camera();
+    gl.viewport(0, 0, cv.width, cv.height);
+    gl.uniform2f(U.uRes, cv.width, cv.height);
+    gl.uniform3fv(U.uRo, st.ortho ? cam.roO : cam.ro);
+    gl.uniform3fv(U.uR, cam.R);
+    gl.uniform3fv(U.uU, cam.U);
+    gl.uniform3fv(U.uF, cam.F);
+    gl.uniform1f(U.uTan, TAN);
+    gl.uniform1f(U.uOrtho, st.ortho ? 1 : 0);
+    gl.uniform1f(U.uOH, cam.oh);
+    gl.uniform1f(U.uSec, st.sec ? 1 : 0);
+    gl.uniform1f(U.uScrew, st.screw ? 1 : 0);
+    gl.uniform3fv(U.uBgA, theme.top);
+    gl.uniform3fv(U.uBgB, theme.bot);
+    gl.uniform3fv(U.uLine, theme.line);
+    gl.uniform3fv(U.uAcc, theme.acc);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    overlay();
+  }
+
+  // ---- 寸法と軸の向き (2D で上に重ねる)
+  function seg(a, b) {
+    const A = project(a), B = project(b);
+    if (!A || !B) return;
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+  }
+  function arrowHead(P, Q) {               // P に矢じり、Q の方向から来る
+    const dx = P[0] - Q[0], dy = P[1] - Q[1], l = Math.hypot(dx, dy) || 1;
+    const ux = dx / l, uy = dy / l, s = 7, w = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(P[0], P[1]);
+    ctx.lineTo(P[0] - ux * s - uy * w, P[1] - uy * s + ux * w);
+    ctx.lineTo(P[0] - ux * s + uy * w, P[1] - uy * s - ux * w);
+    ctx.closePath(); ctx.fill();
+  }
+  function label(x, y, s, align) {
+    ctx.textAlign = align || "center";
+    ctx.lineWidth = 3.5; ctx.strokeStyle = theme.halo; ctx.strokeText(s, x, y);
+    ctx.fillText(s, x, y);
+    ctx.lineWidth = 1; ctx.strokeStyle = theme.ink;
+  }
+  function dim(a, b, off, text) {
+    const n = norm(off);
+    const pn = norm(cross(sub(b, a), n));                       // 寸法を書く面の向き
+    if (Math.abs(dot(pn, cam.F)) < 0.3) return;                 // 面が視線とほぼ平行なら書かない
+    const a2 = add(a, off), b2 = add(b, mul(n, dot(sub(a2, b), n)));   // 寸法線は a2 を通り off に直交
+    seg(add(a, mul(n, 0.8)), add(a2, mul(n, 1.4)));
+    seg(add(b, mul(n, 0.8)), add(b2, mul(n, 1.4)));
+    const A = project(a2), B = project(b2);
+    if (!A || !B) return;
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    arrowHead(A, B); arrowHead(B, A);
+    const M = project(mul(add(a2, b2), 0.5)), M2 = project(add(mul(add(a2, b2), 0.5), mul(n, 3)));
+    if (!M || !M2) return;
+    let dx = M2[0] - M[0], dy = M2[1] - M[1];
+    const l = Math.hypot(dx, dy) || 1;
+    dx /= l; dy /= l;
+    const k = 7 + Math.abs(dx) * (ctx.measureText(text).width / 2 + 2) + Math.abs(dy) * 6;
+    label(M[0] + dx * k, M[1] + dy * k + 4, text);
+  }
+  function lead(p, q, text, face) {
+    if (dot(norm(face), cam.F) > -0.2) return;                  // その面が見えない向きでは書かない
+    const P = project(p), Q = project(q);
+    if (!P || !Q) return;
+    const right = Q[0] >= P[0];
+    const w = ctx.measureText(text).width + 4;
+    ctx.beginPath(); ctx.moveTo(P[0], P[1]); ctx.lineTo(Q[0], Q[1]);
+    ctx.lineTo(Q[0] + (right ? w : -w), Q[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(P[0], P[1], 2, 0, Math.PI * 2); ctx.fill();
+    label(Q[0] + (right ? 2 : -2), Q[1] - 4, text, right ? "left" : "right");
+  }
+  function overlay() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.lineJoin = "round";
+    if (st.dims) {
+      ctx.strokeStyle = theme.ink; ctx.fillStyle = theme.ink; ctx.lineWidth = 1;
+      ctx.font = `500 12px ${theme.mono}`;
+      dim([0, 0, 0], [34, 11, 0], [0, 19, 0], "34±0.5");
+      dim([6, 0, 0], [24, 11, 0], [0, 15, 0], "18");
+      dim([24, 11, 0], [34, 11, 0], [0, 4, 0], "10±0.5");
+      dim([34, -11, 0], [34, 11, 0], [6, 0, 0], "22±1");
+      dim([15, -5, 0], [15, 5, 0], [-21, 0, 0], "10±1");
+      dim([34, -3, -8], [34, -3, 8], [0, -14, 0], "16");
+      dim([29, 11, 0], [34, 11, 0], [0, 0, 11], "5");
+      const FZ = [0, 0, 1], FX = [1, 0, 0], FY = [0, 1, 0];
+      lead([3.22, 7.78, 0], [-7, 13, 0], "R11", FZ);
+      lead([7.46, -3.54, 0], [-7, -12, 0], "R5", FZ);
+      lead([18, -11, 0], [12, -19, 0], "φ6", FZ);
+      lead([34, 8.66, 5.66], [41, 16, 8], "2-R8", FX);
+      lead([25.5, 0, 6.5], [22, -8, 17], "C3", [-0.5, 0.5, 0.7]);
+      lead([34, -3.2, 3.2], [43, -9, 6], "M8", FX);
+      lead([34, 3.4, 3.4], [44, 3, 10], "C1", FX);
+      lead([29, 10.9, 1.4], [36, 21, 4], "M3タップ", FY);
+    }
+    // 軸の向き
+    const ox = 46, oy = H - 46, L = 28;
+    const axes = [[1, 0, 0, "X"], [0, 1, 0, "Y"], [0, 0, 1, "Z"]]
+      .map((a, i) => ({ v: [a[0], a[1], a[2]], name: a[3], col: theme.ax[i] }))
+      .sort((p, q) => dot(q.v, cam.F) - dot(p.v, cam.F));
+    ctx.font = `500 11px ${theme.mono}`;
+    ctx.lineWidth = 2;
+    for (const a of axes) {
+      const x = dot(a.v, cam.R), y = dot(a.v, cam.U);
+      ctx.strokeStyle = a.col; ctx.fillStyle = a.col;
+      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + x * L, oy - y * L); ctx.stroke();
+      ctx.textAlign = "center";
+      ctx.fillText(a.name, ox + x * (L + 9), oy - y * (L + 9) + 4);
+    }
+    ctx.lineWidth = 1;
+  }
+
+  // ---- 操作
+  function setPressed(name) {
+    document.querySelectorAll("#views button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === name ? "true" : "false"));
+  }
+  function goView(name) {
+    if (name !== "fit") { st.yaw = VIEWS[name].yaw; st.pitch = VIEWS[name].pitch; setPressed(name); }
+    st.T = CENTER.slice();
+    sizeCanvas();
+    st.dist = fitDist();
+    request();
+  }
+  document.getElementById("views").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) goView(b.dataset.view);
+  });
+  const bind = (id, key) => {
+    const el = document.getElementById(id);
+    st[key] = el.checked;
+    el.addEventListener("change", () => { st[key] = el.checked; request(); });
+  };
+  bind("t-dims", "dims"); bind("t-sec", "sec"); bind("t-screw", "screw"); bind("t-ortho", "ortho");
+
+  function pan(dx, dy) {
+    const k = 2 * st.dist * TAN / H;
+    st.T = add(st.T, add(mul(cam.R, -dx * k), mul(cam.U, dy * k)));
+  }
+  function zoomAt(factor, mx, my) {
+    const nd = clamp(st.dist * factor, 6, 400);
+    const x = (mx - W / 2) / (H / 2), y = -(my - H / 2) / (H / 2);
+    const d = (st.dist - nd) * TAN;
+    st.T = add(st.T, add(mul(cam.R, x * d), mul(cam.U, y * d)));
+    st.dist = nd;
+  }
+  function turned() { setPressed(null); }
+
+  const ptrs = new Map();
+  let mode = null, pinch = null;
+  function pinchState() {
+    const [a, b] = [...ptrs.values()];
+    return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  }
+  cv.addEventListener("contextmenu", (e) => e.preventDefault());
+  cv.addEventListener("pointerdown", (e) => {
+    cv.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1) mode = (e.button === 1 || e.button === 2 || e.shiftKey) ? "pan" : "rot";
+    else if (ptrs.size === 2) { mode = "pinch"; pinch = pinchState(); }
+  });
+  cv.addEventListener("pointermove", (e) => {
+    const p = ptrs.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (mode === "rot") {
+      st.yaw -= dx * 0.008;
+      st.pitch = clamp(st.pitch + dy * 0.008, -PITCH_LIM, PITCH_LIM);
+      turned();
+    } else if (mode === "pan") {
+      pan(dx, dy);
+    } else if (mode === "pinch" && ptrs.size === 2) {
+      const s = pinchState();
+      const r = stage.getBoundingClientRect();
+      zoomAt(pinch.d / s.d, s.cx - r.left, s.cy - r.top);
+      cam = camera();
+      pan(s.cx - pinch.cx, s.cy - pinch.cy);
+      pinch = s;
+    }
+    busy();
+  });
+  const up = (e) => {
+    ptrs.delete(e.pointerId);
+    if (ptrs.size === 1) mode = "rot";
+    else if (ptrs.size === 0) mode = null;
+  };
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = stage.getBoundingClientRect();
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    zoomAt(Math.exp(dy * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    busy();
+  }, { passive: false });
+  cv.addEventListener("dblclick", () => goView("fit"));
+  cv.addEventListener("keydown", (e) => {
+    const k = e.key;
+    if (k === "ArrowLeft") { st.yaw += 0.1; turned(); }
+    else if (k === "ArrowRight") { st.yaw -= 0.1; turned(); }
+    else if (k === "ArrowUp") { st.pitch = clamp(st.pitch - 0.1, -PITCH_LIM, PITCH_LIM); turned(); }
+    else if (k === "ArrowDown") { st.pitch = clamp(st.pitch + 0.1, -PITCH_LIM, PITCH_LIM); turned(); }
+    else if (k === "+" || k === "=") zoomAt(0.85, W / 2, H / 2);
+    else if (k === "-" || k === "_") zoomAt(1 / 0.85, W / 2, H / 2);
+    else return;
+    e.preventDefault();
+    busy();
+  });
+
+  // ---- 起動
+  readTheme();
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const retheme = () => { readTheme(); request(); };
+  if (mq.addEventListener) mq.addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  let lastW = 0, lastH = 0;
+  new ResizeObserver(() => {
+    const r = stage.getBoundingClientRect();
+    if (lastW === 0) { lastW = r.width; lastH = r.height; goView("iso"); return; }
+    lastW = r.width; lastH = r.height;
+    request();
+  }).observe(stage);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(request);
+})();
+</script>
+</body>
+</html>
