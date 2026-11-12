@@ -131,7 +131,8 @@ def draw_bolt(sh, part, s=COMMON):
     arrow(sh, xm, y1, 0, -1)
     arrow(sh, xm, y2, 0, 1)
     sh.text(xm - 1.0, Y0 - S * rD * 0.5, f"φ{fmt(s['D'])}", 4.0, ang=90, align="C")
-    leader(sh, *P(xe - 1.2, rd), P(xe, 0)[0] - 4.0, Y0 + S * rA + 0.0,
+    # ねじの呼び: 文字を F の寸法補助線 2 本の間に置き、補助線と重ねない
+    leader(sh, *P(xt + F * 0.6, rd), P(xt, 0)[0] + 4.0, Y0 + S * rA - 2.0,
            f"M{fmt(s['d'])}×{fmt(s['p'])}")
     label = ("ピン付き" if part["pin"] else "") + f"ヘクサロビュラ {s['T']}"
     ang = math.radians(120)
@@ -140,22 +141,7 @@ def draw_bolt(sh, part, s=COMMON):
 
 
 def note_lines(part):
-    lines = [
-        "1. 普通公差は JIS B 0405-m とする。",
-        "2. ねじはメートル並目ねじ M3×0.5、6g とする。",
-        "3. 段部側の不完全ねじ部は 2P (1 mm) 以下とし、F に含む。",
-        "4. ヘクサロビュラ穴は ISO 10664 (JIS B 1015) の T10 とする。",
-    ]
-    if part["pin"]:
-        lines += [
-            "5. 穴の中心にピンを立てる (いじり止め)。ピンの径と高さは\nT10 のピン穴付きビットが入る寸法とする。",
-            "6. ピンの先端は頭部上面より出さない。",
-        ]
-    n = len(lines) + 1
-    lines += [f"{n}. 表面処理は Ni-Cr めっきとする。",
-              f"{n + 1}. 図中の穴の形とピンは略図で、寸法を示すものではない。"
-              if part["pin"] else f"{n + 1}. 図中の穴の形は略図で、寸法を示すものではない。"]
-    return lines
+    return ["普通公差は JIS B 0405-m とする。"]
 
 
 def main(out):
