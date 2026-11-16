@@ -210,6 +210,82 @@ def render(sheet, path, title):
     c.save()
 
 
+# ---------------------------------------------------------------- DXF 出力 (R12、文字は Shift_JIS)
+# 座標は用紙の左下を原点とした用紙上の mm (部品は図の尺度のまま)。
+# 線色 6 (外形線) と 1 (細線) は画層と色で分ける。R12 には線の太さが無いので、太さは CAD 側で色に割り当てる。
+DXF_LAYERS = {"外形線": 7, "細線": 3, "かくれ線": 4, "中心線": 1, "文字": 7}
+DXF_LTYPES = {"HIDDEN": ("かくれ線", [1.0, -1.0]),
+              "CENTER": ("一点鎖線", [10.0, -1.5, 1.0, -1.5]),
+              "PHANTOM": ("二点鎖線", [10.0, -1.5, 1.0, -1.0, 1.0, -1.5])}
+DXF_STYLE_LT = {2: "HIDDEN", 5: "CENTER", 6: "CENTER", 7: "PHANTOM"}
+
+
+def natural_width(s, size):
+    """文字間隔なしの幅 (全角 = 高さ、半角 = 高さの半分)。"""
+    return sum(size if is_full(ch) else size / 2 for ch in s)
+
+
+def render_dxf(sheet, path):
+    import ezdxf
+
+    doc = ezdxf.new("R12")
+    doc.encoding = "cp932"
+    doc.header["$DWGCODEPAGE"] = "ANSI_932"
+    doc.header["$LTSCALE"] = 1.0
+    doc.header["$EXTMIN"] = (0, 0, 0)
+    doc.header["$EXTMAX"] = (297, 210, 0)
+    doc.header["$LIMMIN"] = (0, 0)
+    doc.header["$LIMMAX"] = (297, 210)
+    for name, (desc, pat) in DXF_LTYPES.items():
+        doc.linetypes.add(name, pattern=[sum(abs(v) for v in pat)] + pat, description=desc)
+    for name, col in DXF_LAYERS.items():
+        doc.layers.add(name, color=col)
+    doc.styles.add("JP", font="msgothic.ttc")
+    msp = doc.modelspace()
+
+    def p(x, y):
+        return x + 297 / 2, y + 210 / 2
+
+    for kind, data, pen, style in sheet.items:
+        if kind == "text":
+            x, y, s, size, sp, ang = data
+            if not s.strip():
+                continue
+            # 文字間隔は DXF の文字に無いので、間隔込みの幅の中央に間隔なしの文字列を置く。
+            # 高さ方向は PDF 出力 (render) と同じく文字の高さの 0.12 倍だけ上げる。
+            off = (text_width(s, size, sp) - natural_width(s, size)) / 2
+            up = size * 0.12
+            a = math.radians(ang)
+            ix = x + math.cos(a) * off - math.sin(a) * up
+            iy = y + math.sin(a) * off + math.cos(a) * up
+            msp.add_text(s, dxfattribs={"layer": "文字", "style": "JP", "height": size, "rotation": ang,
+                                        "insert": p(ix, iy)})
+            continue
+        if kind == "solid":
+            pts = [p(*q) for q in data]
+            if len(pts) <= 4:
+                msp.add_solid(pts, dxfattribs={"layer": "細線"})
+            continue
+        if kind == "fill":
+            continue                  # 灰色の塗りは DXF に出さない
+        lt = DXF_STYLE_LT.get(style)
+        layer = {"HIDDEN": "かくれ線", "CENTER": "中心線", "PHANTOM": "中心線"}.get(lt) or \
+            ("外形線" if pen == 6 else "細線")
+        attrs = {"layer": layer}
+        if lt:
+            attrs["linetype"] = lt
+        if kind == "line":
+            x1, y1, x2, y2 = data
+            msp.add_line(p(x1, y1), p(x2, y2), dxfattribs=attrs)
+        elif kind == "arc":
+            cx, cy, r, a0, a1 = data
+            if a1 - a0 >= 360 - 1e-9:
+                msp.add_circle(p(cx, cy), r, dxfattribs=attrs)
+            else:
+                msp.add_arc(p(cx, cy), r, a0 % 360, a1 % 360, dxfattribs=attrs)
+    doc.saveas(path, encoding="cp932")
+
+
 # ---------------------------------------------------------------- 寸法記入 (書式と同じ開いた矢印: 長さ 2、開き 15°)
 ARROW = 2.0
 
