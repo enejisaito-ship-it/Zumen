@@ -144,7 +144,8 @@ def draw(sh, w=W):
     hdim(sh, U(w["H"], 0)[0], X0, top, U(0, tipc[1])[1], Y0 + S * rA,
          f"{fmt(w['H'])}{w['H_tol']}")
     ztop = Y0 + S * rd + 8.0
-    hdim(sh, T(tz, 0)[0], T(L, 0)[0], ztop, T(0, rp)[1], T(0, rp)[1], fmt(z))
+    zbot = Y0 - S * rd - 8.0                     # 棒先の長さは下側 (右上は φ と R の引出線に使う)
+    hdim(sh, T(tz, 0)[0], T(L, 0)[0], zbot, T(0, -rp)[1], T(0, -(rp - rr))[1], fmt(z))
     bot = Y0 - S * half - 7.0
     hdim(sh, U(w["C"], 0)[0], X0, bot, Y0, Y0 - S * rA, f"{fmt(w['C'])}{w['C_tol']}", outside=True)
     hdim(sh, X0, T(L, 0)[0], bot, Y0 - S * rA, T(0, -(rp - rr))[1], fmt(L))
@@ -162,17 +163,12 @@ def draw(sh, w=W):
     arrow(sh, xa, ya1, 0, -1)
     arrow(sh, xa, ya2, 0, 1)
     sh.text(xa - 1.0, ya2 + 2.0, lab, 4.0, ang=90)
-    # 棒先の径: 棒先の中に寸法線を引く
-    xm = T(tz + z * 0.45, 0)[0]
-    y1, y2 = Y0 - S * rp, Y0 + S * rp
-    sh.line(xm, y1, xm, y2, THIN)
-    arrow(sh, xm, y1, 0, -1)
-    arrow(sh, xm, y2, 0, 1)
-    sh.text(xm - 1.0, Y0 - S * rp * 0.5, f"φ{fmt(w['dp'])}", 4.0, ang=90, align="C")
-    # 先端の丸み
+    # 先端の丸み: 上側の角から右上へ
     a = math.radians(45)
-    leader(sh, cx + S * rr * math.cos(a), T(0, -(rp - rr))[1] - S * rr * math.sin(a),
-           T(L, 0)[0] + 6.0, Y0 - S * rp - 8.0, f"R{fmt(rr)}")
+    leader(sh, cx + S * rr * math.cos(a), T(0, rp - rr)[1] + S * rr * math.sin(a),
+           T(L, 0)[0] + 5.0, Y0 + S * rp + 4.0, f"R{fmt(rr)}")
+    # 棒先の径: 棒先の上の線から引出線でねじの右側へ (R の引出線より上)
+    leader(sh, *T(tz + z * 0.4, rp), T(L, 0)[0] + 5.0, Y0 + S * rp + 13.0, f"φ{fmt(w['dp'])}")
     # ねじの呼び
     leader(sh, *T(t1 * 0.6, rd), T(t1 * 0.4, 0)[0], ztop + 2.0, w["thread"])
 
