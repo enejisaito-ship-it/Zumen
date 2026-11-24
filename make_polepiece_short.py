@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""ポールピースねじ (エレキギターのピックアップ用) の仕様案1「金属ショートネジ」#5-40 UNC×8.5 の図面を、
-株式会社カネコの A4 図面書式で PDF に出力する。
+"""ポールピースねじ (エレキギターのピックアップ用) の仕様案1「金属ショートネジ」#5-40 UNC の図面を、
+株式会社カネコの A4 図面書式で PDF に出力する。首下 8.5 と首下 8 の 2 種類を 1 本で出す。
 
 元の資料: お問合せメール (TEMP-BEXSNU) の「仕様案1: 金属ショートネジ仕様」と「基本スペック」。
 - 頭部: マイナス溝付きフィリスター頭、外径 約5.0。厚みは仕様案2の頭部の値 (約2.5) を使う。
@@ -9,6 +9,7 @@
 - 表面処理: ニッケルめっき または 金めっき (両方の可能性がある)。
 こちらで決めた値 (要確認):
 - 8.5 は首下長さ (座面から先端まで) とした。頭部を含めた全長は 11.0 (参考寸法)。
+- 首下 8 は後の指示で追加 (頭部はそのまま、全長 10.5 は参考寸法)。
 - 頭部の形は make_polepiece.py の金属頭部と同じ (上面 R8、すりわり 幅 0.8 × 深さ 1.0、座面側の角 C0.2)。
 - ねじの等級は 2A。首下まで全ねじとし、首下の不完全ねじ部は 2 山以下。
 - 先端の面取りは C0.4 (谷の径 φ2.40 付近まで)。
@@ -22,18 +23,23 @@ from kaneko import Sheet, arrow, hdim, leader, load_template, fill_title, render
 from make_polepiece import (DK, KH, RC, N, T, CH, D, D1, P_, THICK, THIN,  # noqa: E402
                             crown_x, fmt, head_view, notes, pl)
 
-LN = 8.5            # 首下長さ
+LNS = (8.5, 8.0)    # 首下長さ (1 種類につき 1 枚)
 CT = 0.4            # 先端の面取り
 LI = 2 * P_         # 首下の不完全ねじ部 (2 山)
-L = KH + LN         # 全長 (参考)
 S = 10.0            # 尺度 10/1
 
-TITLE = {"品番": "", "図番": "", "得意先": "", "品名": "ポールピースねじ #5-40 UNC×8.5",
-         "尺度": "10/1", "材質": "S10C相当材", "表面処理": "ニッケルめっき または 金めっき"}
-FILE = "ポールピースねじ_No5-40UNCx8.5.pdf"
+
+def title(ln):
+    return {"品番": "", "図番": "", "得意先": "", "品名": f"ポールピースねじ #5-40 UNC×{fmt(ln)}",
+            "尺度": "10/1", "材質": "S10C相当材", "表面処理": "ニッケルめっき または 金めっき"}
 
 
-def draw(sh):
+def file_name(ln):
+    return f"ポールピースねじ_No5-40UNCx{fmt(ln)}.pdf"
+
+
+def draw(sh, LN):
+    L = KH + LN         # 全長 (参考)
     R, r, r1, hn = DK / 2, D / 2, D1 / 2, N / 2
     Y0 = 40.0
     gap = 32.0
@@ -101,13 +107,15 @@ def draw(sh):
 
 
 def main(out):
-    sh = Sheet()
-    load_template(sh)
-    fill_title(sh, TITLE)
-    draw(sh)
-    path = os.path.join(out, FILE)
-    render(sh, path, TITLE["品名"])
-    print(path)
+    for ln in LNS:
+        sh = Sheet()
+        load_template(sh)
+        t = title(ln)
+        fill_title(sh, t)
+        draw(sh, ln)
+        path = os.path.join(out, file_name(ln))
+        render(sh, path, t["品名"])
+        print(path)
 
 
 if __name__ == "__main__":
